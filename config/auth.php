@@ -112,4 +112,13 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+       /*
+    |--------------------------------------------------------------------------
+    | Verification Email Expiry
+    |--------------------------------------------------------------------------
+    */
+
+    'verification' => [
+        'expire' => 2,  // Expiration des liens de vérification à 20 minutes
+    ],
 ];

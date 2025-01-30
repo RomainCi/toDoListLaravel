@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'trusted_hosts' => env('TRUSTED_HOSTS', 'localhost,127.0.0.1'),
+
 ];

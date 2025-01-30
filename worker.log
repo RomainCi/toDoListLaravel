@@ -1,0 +1,21 @@
+
+   Illuminate\Database\QueryException 
+
+  SQLSTATE[HY000]: General error: 1 no such table: cache (Connection: sqlite, SQL: select * from "cache" where "key" in (illuminate:queue:restart))
+
+  at /home/romain/Documents/Projet/toDoList/ToDoListLaravel/vendor/laravel/framework/src/Illuminate/Database/Connection.php:825
+    821▕                     $this->getName(), $query, $this->prepareBindings($bindings), $e
+    822▕                 );
+    823▕             }
+    824▕ 
+  ➜ 825▕             throw new QueryException(
+    826▕                 $this->getName(), $query, $this->prepareBindings($bindings), $e
+    827▕             );
+    828▕         }
+    829▕     }
+
+      [2m+31 vendor frames [22m
+
+  32  /home/romain/Documents/Projet/toDoList/ToDoListLaravel/artisan:13
+      Illuminate\Foundation\Application::handleCommand()
+
