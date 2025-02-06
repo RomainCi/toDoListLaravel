@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\LoginRequest;
-use App\Http\Requests\RegisterRequest;
-use App\Http\Requests\UpdatePasswordRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\UpdatePasswordRequest;
+use App\Http\Resources\BaseResource;
 use App\Jobs\DeleteUnverifiedUser;
 use App\Jobs\SendVerificationEmail;
 use App\Models\User;
+use App\Service\ErrorService;
 use App\Service\UserService;
 use Exception;
 use Illuminate\Auth\Events\PasswordReset;
@@ -24,6 +26,11 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+    protected $errorService;
+    public function __construct(ErrorService $errorService)
+    {     
+        $this->errorService = $errorService;
+    }
 
     public function loginIndex(): RedirectResponse
     {
@@ -38,23 +45,20 @@ class AuthController extends Controller
         try {
             if (Auth::attempt($credentials, $remember)) {
                 $request->session()->regenerate();
-                return response()->json([
-                    "success" => true,
-                    "message" => "Connexion réussi",
-                ], 200);
+                return (new BaseResource([
+                    'success' => true,
+                    'message' => "Connexion réussie."
+                ]))->response()->setStatusCode(200);  
             }
-            return response()->json([
-                'success' => false,
-                "message" => "Les identifiants sont incorrects.",
-            ], 401);
+            $success =true;
         } catch (Exception $e) {
             Log::error("Erreur lors de la connexion : " . $e->getMessage(), ['exception' => $e]);
-            return response()->json([
-                "bug" => $e->getMessage(),
-                "success" => false,
-                "message" => "Une erreur interne est survenue. Veuillez réessayer plus tard."
-            ], 500);
+            $success = false;
         }
+        return (new BaseResource([
+            'success' => $success,
+            'message' => $success ? "Les identifiants sont incorrects." : $this->errorService->message()
+        ]))->response()->setStatusCode($success ? 401 : 500);  
     }
 
 
@@ -62,44 +66,32 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
         try {
-            ///START TRANSACTION
             DB::beginTransaction();
-            ///CREATE USER WITH SERVICE
             $user = $userService->create($validated);
-            //AUTHENTIFICATION USER
             Auth::login($user);
             $request->session()->regenerate();
-            //SEND EMAIL WITH JOB
             SendVerificationEmail::dispatch($user);
-            DeleteUnverifiedUser::dispatch($user)->delay(now()->addMinutes(2));
+            DeleteUnverifiedUser::dispatch($user)->delay(now()->addMinutes(20));
             DB::commit();
-            return response()->json([
-                "success" => true,
-                "message" => "Un e-mail de vérification a été envoyé."
-            ], 201);
+            $success = true;
         } catch (Exception $e) {
             DB::rollBack();
             Log::error("Erreur lors de la création : " . $e->getMessage(), ['exception' => $e]);
-            return response()->json([
-                "success" => false,
-                "message" => "Une erreur interne est survenue. Veuillez réessayer plus tard."
-            ], 500);
+            $success = false;
         }
+        return (new BaseResource([
+            'success' => $success,
+            'message' => $success ? "Un e-mail de vérification a été envoyé." : $this->errorService->message()
+        ]))->response()->setStatusCode($success ? 201 : 500);  
     }
 
     public function logout(Request $request ,UserService $userService): JsonResponse
     {      
         $success = $userService->logout($request);
-        if($success){
-            return response()->json([
-                "success" => $success,
-                'message' => 'Déconnexion réussie',
-            ],200);
-        }
-            return response()->json([
-                "success" => $success,
-                "message" => "Une erreur interne est survenue. Veuillez réessayer plus tard."
-            ], 500);   
+        return (new BaseResource([
+            'success' => $success,
+            'message' => $success ? "Déconnexion réussie" : $this->errorService->message()
+        ]))->response()->setStatusCode($success ? 200 : 500);  
     }
 
 
@@ -109,62 +101,52 @@ class AuthController extends Controller
             $request->validate(['email' => 'required|email']);
             ////VERIFIER QUE PASSWORD RESET TOKEN CE DELETE/////
             Password::sendResetLink($request->only('email'));
-            return response()->json([
-                "success" => true,
-                'message' => 'Un e-mail de mot passe oublié a été envoyé.',
-            ],200);
+            $success = true;
         }catch(Exception $e){
             Log::error("Erreur lors de la forgetPassword : " . $e->getMessage(), ['exception' => $e]);
-            return response()->json([
-                "success" => false,
-                "message" => "Une erreur interne est survenue. Veuillez réessayer plus tard."
-            ], 500);
+            $success = false;
         }
+        return (new BaseResource([
+            'success' => $success,
+            'message' => $success ? "Un e-mail de mot passe oublié a été envoyé." : $this->errorService->message()
+        ]))->response()->setStatusCode($success ? 200 : 500); 
        
     }
 
-    public function sendVerificationEmail(Request $request):JsonResponse
+    public function sendVerificationEmail():JsonResponse
     {
         try{
-            $user = Auth::user(); // Récupère l'utilisateur authentifié
-
-        // Vérifie si l'utilisateur a déjà vérifié son email
+            $user = Auth::user();
         if ($user->email_verified_at !== null) {
-            return response()->json([
-                "success" => false,
-                'message' => 'L\'email est déjà vérifié.'
-            ], 200);
+            return (new BaseResource([
+                'success' => true,
+                'message' => "L'email est déja vérifier"
+            ]))->response()->setStatusCode(409);  
         }
-
-        // Envoie un e-mail de vérification via le job
         SendVerificationEmail::dispatch($user);
-
-        return response()->json([
-            "success" => true,
-            "message" => 'Un e-mail de vérification a été envoyé.'
-        ], 200);
+        $success = true;
         }catch(Exception $e){
             Log::error("Erreur lors de la sendVerificationEmail : " . $e->getMessage(), ['exception' => $e]);
-            return response()->json([
-                "success" => false,
-                "message" => "Une erreur interne est survenue. Veuillez réessayer plus tard."
-            ], 500);
+            $success = false;
         }
-        
+        return (new BaseResource([
+            'success' => $success,
+            'message' => $success ? "Un e-mail de vérification a été envoyé." : $this->errorService->message()
+        ]))->response()->setStatusCode($success ? 200 : 500);     
     }
 
     public function resetPassword(string $token):RedirectResponse | JsonResponse
     {   
         try{
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
         $resetUrl = $frontendUrl . '/reset-password?token=' . $token;
         return redirect()->away($resetUrl);
         }catch(Exception $e){
             Log::error("Erreur lors de resetPassword : " . $e->getMessage(), ['exception' => $e]);
-            return response()->json([
-                "success" => false,
-                "message" => "Une erreur interne est survenue. Veuillez réessayer plus tard."
-            ], 500);
+            return (new BaseResource([
+                'success' => false,
+                'message' => $this->errorService->message()
+            ]))->response()->setStatusCode(500);
         }
         
     }
@@ -191,8 +173,9 @@ class AuthController extends Controller
             Log::error("Erreur lors de updatePassword : " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 "success" => false,
-                "message" => "Une erreur interne est survenue. Veuillez réessayer plus tard."
+                "message" => $this->errorService->message()
             ], 500);
         }
     }
+
 }

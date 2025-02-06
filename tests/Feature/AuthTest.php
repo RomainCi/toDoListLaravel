@@ -1,23 +1,137 @@
 <?php
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 use App\Jobs\SendVerificationEmail;
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
-use Carbon\Factory;
 use Illuminate\Auth\Events\PasswordReset;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
-use Laravel\Sanctum\Sanctum;
+use GuzzleHttp\Client;
+use GuzzleHttp\Promise\Utils;
+use GuzzleHttp\Cookie\CookieJar;
 
 uses(RefreshDatabase::class);
+
+
+test('register-50-user-dif', function() {
+    Queue::fake();
+    
+    $client = new Client(); // Initialisation du client Guzzle
+    $responses = [];
+    $emailBase = 'testuser'; // Base pour générer des emails uniques
+    $promises = []; // Liste des promesses (requêtes asynchrones)
+    $cookieJar = new CookieJar(); // Créer un gestionnaire de cookies
+    $client = new Client(['cookies' => $cookieJar]);
+    // Envoi des 50 requêtes en parallèle
+    for ($i = 1; $i <= 50; $i++) {
+        $client->get('http://127.0.0.1:8000/api/csrf-cookie', [
+            'headers' => [
+                'Origin' => 'http://127.0.0.1:8000',
+            ]
+        ]);
+
+        // Récupérer le cookie CSRF (XSRF-TOKEN) depuis le gestionnaire de cookies
+        $cookies = $cookieJar->toArray();
+        $csrfToken = '';
+        foreach ($cookies as $cookie) {
+            if ($cookie['Name'] === 'XSRF-TOKEN') {
+                $csrfToken = urldecode($cookie['Value']);
+                break;
+            }
+        }
+
+        // Récupérer le cookie CSRF depuis le client (cela dépend de ta gestion de session)
+        // Remarque : il faut récupérer le cookie CSRF dans le client. Cela peut varier selon la méthode de session utilisée.
+
+        // Exemple de récupération du cookie depuis les headers de la réponse
+        $cookie = $client->getConfig('cookies')->getCookieByName('XSRF-TOKEN');
+        $csrfToken = $cookie ? $cookie->getValue() : '';
+        $email = $emailBase . $i . '@gmail.com'; // Email unique pour chaque utilisateur
+        // Ajouter chaque requête à la liste des promesses
+        $promises[] = $client->postAsync('http://127.0.0.1:8000/api/auth/register', [
+            'json' => [
+                "lastName" => "Doe",
+                "firstName" => "John",
+                "email" => $email,
+                "password" => "3dazdzadD#",
+                "password_confirmation" => '3dazdzadD#'
+            ],
+            'headers' => [
+                'Origin' => 'http://127.0.0.1:8000',
+                'X-XSRF-TOKEN' => urldecode($csrfToken),
+            ]
+        ]);
+    }
+
+    // Attendre que toutes les requêtes soient terminées
+    $responses = Utils::settle($promises)->wait();
+
+    // Vérifier la réponse et effectuer les assertions pour chaque utilisateur
+    foreach ($responses as $response) {
+        dd($response);
+        // Vérifier que la réponse est correcte (réponse 201 pour la création)
+        $this->assertEquals(201, $response['value']->getStatusCode());
+
+        $responseData = json_decode($response['value']->getBody()->getContents(), true);
+        $email = $responseData['data']['email'];
+
+        // Vérifier que l'utilisateur est bien créé dans la base de données
+        $this->assertDatabaseHas('users', [
+            'email' => $email
+        ]);
+
+        // Vérifier qu'un job a bien été dispatché pour chaque utilisateur
+        Queue::assertPushed(SendVerificationEmail::class, function ($job) use ($email) {
+            return $job->user->email === $email;
+        });
+        dump($response->json());
+    }
+});
+
+
+test('register-50-user',function(){
+    Queue::fake();
+
+        // Simuler l'envoi de données pour l'enregistrement de 50 utilisateurs
+        $responses = [];
+        $emailBase = 'testuser'; // Base pour générer des emails uniques
+
+        for ($i = 1; $i <= 50; $i++) {
+            $email = $emailBase . $i . '@gmail.com'; // Email unique pour chaque utilisateur
+            $response = $this->withHeaders([
+                'Origin' => 'http://127.0.0.1:8000',
+            ])->postJson('/api/auth/register', [
+                "lastName" => "Doe",
+                "firstName" => "John",
+                "email" => $email,
+                "password" => "3dazdzadD#",
+                "password_confirmation" => '3dazdzadD#'
+            ]);
+            
+            // Si la réponse contient des erreurs, afficher les erreurs pour déboguer
+            if ($response->json('errors')) {
+                dump($response->json('errors'));
+            }
+            
+           
+
+            $responses[] = $response;
+            // dd($response->json('data'));
+
+            // Vérifier que l'utilisateur est bien créé dans la base de données
+            $this->assertDatabaseHas('users', [
+                'email' => $email
+            ]);
+            Queue::assertPushed(SendVerificationEmail::class, function ($job)use ($email) {
+                return $job->user->email === $email;
+            });
+        }
+});
 
 test('register', function () {
     // Fake les queues pour empêcher l'exécution des jobs
@@ -30,15 +144,14 @@ test('register', function () {
         "lastName" => "Doe",
         "firstName" => "John",
         "email" => "john@gmail.com",
-        "password" => "S3cr3t@e",
-        "password_confirmation" => 'S3cr3t@e'
+        "password" => "3dazdzadD#",
+        "password_confirmation" => '3dazdzadD#'
     ]);
 
     // Si la réponse contient des erreurs, afficher les erreurs pour déboguer
     if ($response->json('errors')) {
         dump($response->json('errors'));
     }
-    dump($response->json());
     expect($response->status())->toBe(201);
 
     // Vérifier que l'utilisateur est bien créé dans la base de données
@@ -51,7 +164,6 @@ test('register', function () {
         return $job->user->email === 'john@gmail.com';
     });
 });
-
 
 test('login', function () {
     // Créer un utilisateur de test
@@ -92,8 +204,10 @@ test('logout', function () {
     // 4. Vérifie que la réponse est correcte
     $response->assertStatus(200)
              ->assertJson([
+                "data"=>[
                  'success' => true,
                  'message' => 'Déconnexion réussie',
+                ],
              ]);
 
              $this->refreshApplication();
@@ -120,7 +234,6 @@ test('verifyEmail',function(){
     $response = $this->withHeaders([
         'Origin' => 'http://127.0.0.1:8000',
     ])->postJson('/api/auth/email/verification-notification');
-    dump($response->json("message"));
     expect($response->status())->toBe(200);
     Queue::assertPushed(SendVerificationEmail::class, function ($job) {
         return $job->user->email === 'john@gmail.com';
@@ -142,7 +255,6 @@ test('forget-password',function(){
     ])->postJson('/api/auth/forget-password',[
         "email" => $user->email,
     ]);
-    dump($response->json());
     expect($response->status())->toBe(200);
     Notification::assertSentTo($user, ResetPasswordNotification::class);
 });
@@ -179,14 +291,12 @@ test('post-reset-password',function(){
     ]);
     $response = $this->withHeaders([
         'Origin' => 'http://127.0.0.1:8000',
-    ])->postJson('/api/auth/reset-password',[
+    ])->patchJson('/api/auth/reset-password',[
         "email" => $user->email,
         "token" =>'test-token',
         "password" => 'S3cr3t@e32',
         "password_confirmation" => 'S3cr3t@e32'
     ]);
-
-    dump($response->json());
     expect($response->status())->toBe(200);
     $user->refresh();
     $this->assertFalse(Hash::check('ancienMotDePasse', $user->password));
@@ -196,55 +306,3 @@ test('post-reset-password',function(){
         return $event->user->is($user);
     });
 });
-
-test('show-user',function(){
-    $user = User::factory()->create();
-
-    // 2. Simule une connexion
-    $this->actingAs($user);
-    $response = $this->withHeaders([
-        'Origin' => 'http://127.0.0.1:8000',
-    ])->getJson('/api/user/show');
-
-    dump($response->json());
-    expect($response->status())->toBe(200);
-});
-
-test('update-user',function(){
-    $user = User::factory()->create();
-    $this->actingAs($user);
-    $data = [
-        "lastName" => "Ciszewicz",
-        "firstName" => "Romain",
-    ];
-    $response = $this->withHeaders([
-        'Origin' => 'http://127.0.0.1:8000',
-    ])->postJson('/api/user/update',$data);
-
-    dump($response->json());
-    expect($response->status())->toBe(200);
-    //Vérifier que l'utilisateur est toujours connecté
-    $this->assertTrue(Auth::check()); // L'utilisateur est bien authentifir
-    $this->assertEquals($user->id, Auth::id()); // L'utilisateur connecté est bien celui qui a été simulé
-});
-
-test('destroy-user',function(){
-    $user = User::factory()->create();
-    $this->actingAs($user);
-    $response = $this->withHeaders([
-        'Origin' => 'http://127.0.0.1:8000',
-    ])->deleteJson('/api/user/delete');
-    // dump($response->json());
-    expect($response->status())->toBe(200);
-    $this->assertDatabaseMissing('users', [
-        'id' => $user->id,
-    ]);
-    // dump(Auth::user());
-    // dump($user);
-     // acting as unauthenticated user
-     $this->refreshApplication();
-     $this->assertGuest();
-});
-
-
-

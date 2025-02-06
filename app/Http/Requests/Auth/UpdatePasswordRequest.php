@@ -1,10 +1,12 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Auth;
 
+use App\Rules\PasswordRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Password;
 
-class LoginRequest extends FormRequest
+class UpdatePasswordRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,18 +24,22 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "email"=> ['required','email'],
-            "password"=>['required'],
-            'remember'=>['boolean'],
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => [
+                'required',
+                'confirmed',
+                new PasswordRule($this->isPrecognitive() ? false : true),          
+            ],
         ];
     }
     public function messages(): array
     {
-        return[
+        return [
+            'token.required' => 'Le token est obligatoire',
             'email.required' => 'L\'email est obligatoire',
-            'email.email' => 'L\'adresse email n\'est pas valide',
             'password.required' => 'Le mot de passe est obligatoire',
-            'remember.boolean'=>'La case se souvenir de moi doit être coché ou non',
+            'password.confirmed' => 'La confirmation du champ du mot de passe ne correspond pas.',
         ];
     }
 }

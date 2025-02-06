@@ -1,0 +1,14 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Relations\Pivot;
+
+class ProjectUser extends Pivot
+{
+    protected $fillable = [
+        "role",
+        "user_id",
+        "project_id"
+    ];
+}

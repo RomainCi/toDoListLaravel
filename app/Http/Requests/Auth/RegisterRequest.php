@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Auth;
 
+use App\Rules\PasswordRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -29,13 +30,9 @@ class RegisterRequest extends FormRequest
             'password' => [
                 'required',
                 'confirmed',
-                Password::min(8)
-                    ->letters()
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-                    ->uncompromised()
+                new PasswordRule($this->isPrecognitive() ? false : true),          
             ],
+        
         ];
     }
 
@@ -50,12 +47,7 @@ class RegisterRequest extends FormRequest
             'email.email' => 'L\'adresse email n\'est pas valide',
             'email.unique' => 'Cet email est déjà utilisé',
             'password.required' => 'Le mot de passe est obligatoire',
-            'password.min' => 'Le mot de passe doit comporter au moins :min caractères',
-            'password.letters' => 'Le mot de passe doit contenir au moins une lettre',
-            'password.mixed' => 'Le mot de passe doit contenir des lettres majuscules et minuscules',
-            'password.numbers' => 'Le mot de passe doit contenir au moins un chiffre',
-            'password.symbols' => 'Le mot de passe doit contenir au moins un symbole',
-            'password.uncompromised' => 'Le mot de passe a été compromis dans une fuite de données. Veuillez en choisir un autre.',
+            'password.confirmed' => 'La confirmation du champ du mot de passe ne correspond pas.',
         ];
     }
 }

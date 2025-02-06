@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -38,7 +39,36 @@ class UserService
 
     public function show(): void {}
 
-    public function logout(Request $request)
+    public function updateEmail(string $email,User $user):bool
+    {
+        try{
+            $user->email = $email;
+            $user->email_verified_at = Carbon::now();
+            $user->save();
+            Auth::setUser($user);
+            return true;
+        }catch(Exception $e){
+            return false;
+            Log::error("Erreur lors du updateEmail dans userService :". $e->getMessage(),['exception' => $e]);
+        }
+       
+    }
+
+    public function updatePassword(string $password,User $user):bool
+    {
+        try{  
+            $user->password = Hash::make($password);
+            $user->save();
+            Auth::setUser($user);
+            return true;
+        }catch(Exception $e){
+            return false;
+            Log::error("Erreur lors du updatePassword dans userService :". $e->getMessage(),['exception' => $e]);
+        }
+    }
+
+
+    public function logout(Request $request):bool
     {
         try{
             Auth::guard('web')->logout();

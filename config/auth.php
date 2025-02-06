@@ -119,6 +119,6 @@ return [
     */
 
     'verification' => [
-        'expire' => 2,  // Expiration des liens de vérification à 20 minutes
+        'expire' => 20,  // Expiration des liens de vérification à 20 minutes
     ],
 ];
