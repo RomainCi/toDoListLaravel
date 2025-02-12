@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Policies\ProjectPolicy;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -30,5 +32,6 @@ class AppServiceProvider extends ServiceProvider
                 ->action('Confirmer mon e-mail', $url) // Lien vers la vérification
                 ->line('Si vous n’avez pas créé de compte, vous pouvez ignorer cet e-mail.');
         });
+        Gate::define('update-project', [ProjectPolicy::class, 'update']);
     }
 }

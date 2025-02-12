@@ -6,7 +6,7 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.2",
+        "php": "^8.3.6",
         "guzzlehttp/guzzle": "^7.9",
         "laravel-lang/common": "^6.4",
         "laravel/framework": "^11.31",
@@ -15,6 +15,7 @@
         "league/flysystem-aws-s3-v3": "^3.0"
     },
     "require-dev": {
+        "barryvdh/laravel-debugbar": "^3.14",
         "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.1",
         "laravel/pint": "^1.13",

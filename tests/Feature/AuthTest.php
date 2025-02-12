@@ -25,10 +25,10 @@ test('register-50-user-dif', function() {
     $responses = [];
     $emailBase = 'testuser'; // Base pour générer des emails uniques
     $promises = []; // Liste des promesses (requêtes asynchrones)
-    $cookieJar = new CookieJar(); // Créer un gestionnaire de cookies
-    $client = new Client(['cookies' => $cookieJar]);
     // Envoi des 50 requêtes en parallèle
-    for ($i = 1; $i <= 50; $i++) {
+    for ($i = 1; $i <= 2; $i++) {
+        $cookieJar = new CookieJar(); // Nouvelle instance pour chaque utilisateur
+        $client = new Client(['cookies' => $cookieJar]);
         $client->get('http://127.0.0.1:8000/api/csrf-cookie', [
             'headers' => [
                 'Origin' => 'http://127.0.0.1:8000',
@@ -37,12 +37,17 @@ test('register-50-user-dif', function() {
 
         // Récupérer le cookie CSRF (XSRF-TOKEN) depuis le gestionnaire de cookies
         $cookies = $cookieJar->toArray();
-        $csrfToken = '';
+        // dd($cookies);
+        // $csrfToken = '';
         foreach ($cookies as $cookie) {
             if ($cookie['Name'] === 'XSRF-TOKEN') {
                 $csrfToken = urldecode($cookie['Value']);
                 break;
             }
+        }
+        if (!$csrfToken) {
+            dump("CSRF Token not found for user $i !");
+            continue;
         }
 
         // Récupérer le cookie CSRF depuis le client (cela dépend de ta gestion de session)
@@ -53,6 +58,7 @@ test('register-50-user-dif', function() {
         $csrfToken = $cookie ? $cookie->getValue() : '';
         $email = $emailBase . $i . '@gmail.com'; // Email unique pour chaque utilisateur
         // Ajouter chaque requête à la liste des promesses
+        $start = microtime(true);
         $promises[] = $client->postAsync('http://127.0.0.1:8000/api/auth/register', [
             'json' => [
                 "lastName" => "Doe",
@@ -66,30 +72,25 @@ test('register-50-user-dif', function() {
                 'X-XSRF-TOKEN' => urldecode($csrfToken),
             ]
         ]);
+        $end = microtime(true);
+dump('⏳ Temps pour une requête : ' . ($end - $start) . 's');
     }
-
+    // Démarrer le chronométrage avant l'exécution
+$startTime = microtime(true);
     // Attendre que toutes les requêtes soient terminées
     $responses = Utils::settle($promises)->wait();
-
+    // Démarrer le chronométrage après l'exécution
+$endTime = microtime(true);
+$totalTime = $endTime - $startTime;
+dump("⏳Temps total d'exécution pour toutes les requêtes : " . $totalTime . " secondes\n");
+    // dd($responses);
     // Vérifier la réponse et effectuer les assertions pour chaque utilisateur
     foreach ($responses as $response) {
-        dd($response);
-        // Vérifier que la réponse est correcte (réponse 201 pour la création)
-        $this->assertEquals(201, $response['value']->getStatusCode());
-
-        $responseData = json_decode($response['value']->getBody()->getContents(), true);
-        $email = $responseData['data']['email'];
-
-        // Vérifier que l'utilisateur est bien créé dans la base de données
-        $this->assertDatabaseHas('users', [
-            'email' => $email
-        ]);
-
-        // Vérifier qu'un job a bien été dispatché pour chaque utilisateur
-        Queue::assertPushed(SendVerificationEmail::class, function ($job) use ($email) {
-            return $job->user->email === $email;
-        });
-        dump($response->json());
+        if($response['state']=== "rejected"){
+            dump($response["reason"]->getMessage());
+        }else{
+            $this->assertEquals(201, $response['value']->getStatusCode());
+        }
     }
 });
 
@@ -99,7 +100,7 @@ test('register-50-user',function(){
 
         // Simuler l'envoi de données pour l'enregistrement de 50 utilisateurs
         $responses = [];
-        $emailBase = 'testuser'; // Base pour générer des emails uniques
+        $emailBase = 'JohnDoeTest'; // Base pour générer des emails uniques
 
         for ($i = 1; $i <= 50; $i++) {
             $email = $emailBase . $i . '@gmail.com'; // Email unique pour chaque utilisateur

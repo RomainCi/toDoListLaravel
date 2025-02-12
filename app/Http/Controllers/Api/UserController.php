@@ -21,11 +21,11 @@ use Illuminate\Support\Facades\Notification;
 
 class UserController extends Controller
 {
-    protected $errorService;
-    protected $userService;
+    protected ErrorService $errorService;
+    protected UserService $userService;
 
     public function __construct(ErrorService $errorService,UserService $userService)
-    {     
+    {
         $this->errorService = $errorService;
         $this->userService = $userService;
     }
@@ -57,8 +57,6 @@ class UserController extends Controller
         }
     }
 
-    public function showForAdmin(string $id) {}
-
     /**
      * Update the specified resource in storage.
      */
@@ -87,7 +85,7 @@ class UserController extends Controller
             $success = true;
             $message = "Un e-mail de vérification a été envoyé.";
         } catch (Exception $e) {
-            Log::error("Une erreur est survenue dans Usercontroller UpdateEmail" . $e->getMessage(), ['exception' => $e]);
+            Log::error("Une erreur est survenue dans UserController UpdateEmail" . $e->getMessage(), ['exception' => $e]);
             $success = false;
             $message = $this->errorService->message();
         }

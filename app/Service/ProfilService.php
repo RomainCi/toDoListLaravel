@@ -28,8 +28,14 @@ class ProfilService
         return $user->profil->picture;
     }
 
-    public function destroy(UserProfil $profil)
+    public function destroy(UserProfil $profil):void
     {
         $profil->delete();
+    }
+
+    public function update(string $path,User $user):void
+    {
+        $user->profil->picture = $path;
+        $user->save();
     }
 }

@@ -11,3 +11,13 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote')->hourly();
 
 Schedule::command('auth:clear-resets')->everyFifteenMinutes();
+
+Artisan::command('logs:clear', function() {
+
+    exec('rm -f ' . storage_path('logs/*.log'));
+
+    exec('rm -f ' . base_path('*.log'));
+
+    $this->comment('Logs have been cleared!');
+
+})->describe('Clear log files');

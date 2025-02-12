@@ -9,17 +9,32 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class UserService
 {
+    protected $authService;
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
     public function create(array $validated): User
     {
-        $user = User::create([
+        // $startTime = microtime(true);
+        $userId = DB::table('users')->insertGetId([
             "last_name" => $validated['lastName'],
             "first_name" => $validated['firstName'],
             "email" => $validated['email'],
             "password" => Hash::make($validated['password']),
+            "created_at" => now(),
+            "updated_at" => now(),
         ]);
+        
+        $user = User::find($userId); // Charge le modèle seulement après l’insertion
+        
+        // $endTime = microtime(true);
+        // Log::info("Temps d'insertion: " . ($endTime - $startTime) . " secondes");
+        
         return $user;
     }
 
@@ -27,7 +42,7 @@ class UserService
     {
         try{
             $user = User::destroy(Auth::id());
-            $this->logout($request);
+            $this->authService->logout($request);
             return true;
         }catch(Exception $e){
             Log::error("Erreur lors du UserService dans destroy : " . $e->getMessage(), ['exception' => $e]);
@@ -48,8 +63,8 @@ class UserService
             Auth::setUser($user);
             return true;
         }catch(Exception $e){
-            return false;
             Log::error("Erreur lors du updateEmail dans userService :". $e->getMessage(),['exception' => $e]);
+            return false;
         }
        
     }
@@ -62,24 +77,13 @@ class UserService
             Auth::setUser($user);
             return true;
         }catch(Exception $e){
-            return false;
             Log::error("Erreur lors du updatePassword dans userService :". $e->getMessage(),['exception' => $e]);
-        }
-    }
-
-
-    public function logout(Request $request):bool
-    {
-        try{
-            Auth::guard('web')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-            return true;
-        }catch(Exception $e){
-            Log::error("Erreur lors du UserService dans logoout : " . $e->getMessage(), ['exception' => $e]);
             return false;
         }
     }
+
+
+   
 
     public function update(array $validated): bool
     {

@@ -5,6 +5,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
+use function Pest\Laravel\json;
+
 uses(RefreshDatabase::class);
 
 
@@ -14,7 +16,7 @@ test('user-profil-store-not-working',function(){
     // 2. Simule une connexion
     $this->actingAs($user);
     $file = [
-      "picture" => UploadedFile::fake()->create("document.php",1*1024)];
+      "picture" => UploadedFile::fake()->create("document.php",1024)];
     $response = $this->withHeaders([
         'Origin' => 'http://127.0.0.1:8000',
     ])->postJson('/api/profil', $file);
@@ -27,7 +29,7 @@ test('user-profil-store-good',function(){
     $user = User::factory()->create();
     $this->actingAs($user);
     $file = [
-        "picture" => UploadedFile::fake()->create("picture.png",1*50)];
+        "picture" => UploadedFile::fake()->create("picture.png",50)];
       $response = $this->withHeaders([
           'Origin' => 'http://127.0.0.1:8000',
       ])->postJson('/api/profil', $file);
@@ -41,7 +43,7 @@ test('user-profil-index',function(){
     $user = User::factory()->create();
     $this->actingAs($user);
     // Simulate uploading a picture to S3 and associate it with the user
-    $image = UploadedFile::fake()->image('profile-picture.jpg');  // Crée une image fictive
+    $image = UploadedFile::fake()->create('profile-picture.jpg',50);  // Crée une image fictive
     // Enregistres cette image dans la table 'pictures' via un modèle ou directement
     $user->profil()->create([
         'picture' => $image->store('profile-pictures', 's3'),  // Utilise 's3' comme disque configuré
@@ -49,6 +51,8 @@ test('user-profil-index',function(){
       $response = $this->withHeaders([
           'Origin' => 'http://127.0.0.1:8000',
       ])->getJson('/api/profil');
+    Storage::disk('s3')->assertExists('profile-pictures');
+      dump($response->json());
       $response->assertStatus(200);
       $response->assertJson([
         "data" => [
@@ -101,4 +105,23 @@ test('delete-profil',function(){
     ])->deleteJson('/api/profil');
     $response->assertStatus(200);
     $this->assertNull($user->profil);
+});
+
+test('user-profil-update',function(){
+    Storage::fake('s3');
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $file = [
+        "picture" => UploadedFile::fake()->create("pictures.png",1*50)
+    ];
+    $image = UploadedFile::fake()->image('profile-picture.jpg');  // Crée une image fictive
+    $user->profil()->create([
+        'picture' => $image->store('profile-pictures', 's3'),  // Utilise 's3' comme disque configuré
+    ]);
+    $response = $this->withHeaders([
+        'Origin' => 'http://127.0.0.1:8000',
+    ])->patchJson('/api/profil',$file);
+    // dump($response->json());
+    $response->assertStatus(200);
+
 });

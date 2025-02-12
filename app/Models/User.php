@@ -5,8 +5,10 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 use App\Notifications\ResetPasswordNotification;
+use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,8 +16,10 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable,HasApiTokens;
+
+
 
     /**
      * The attributes that are mass assignable.
@@ -39,6 +43,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
     ];
 
+
     /**
      * Get the attributes that should be cast.
      *
@@ -52,7 +57,8 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
-    public function sendPasswordResetNotification($token)
+
+    public function sendPasswordResetNotification($token): void
     {
         // La notification sera placée en queue ici
         $this->notify(new ResetPasswordNotification($token));
@@ -61,6 +67,14 @@ class User extends Authenticatable implements MustVerifyEmail
     public function profil():HasOne
     {
         return $this->hasOne(UserProfil::class);
+    }
+
+    public function projects():belongsToMany
+    {
+        // Get the ID of the pivot table to get the poolTests table (connected with ID column)
+        return $this->belongsToMany(Project::class)
+            ->using(ProjectUser::class)
+            ->withPivot('role');
     }
 
 }

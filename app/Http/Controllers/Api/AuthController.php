@@ -10,6 +10,7 @@ use App\Http\Resources\BaseResource;
 use App\Jobs\DeleteUnverifiedUser;
 use App\Jobs\SendVerificationEmail;
 use App\Models\User;
+use App\Service\AuthService;
 use App\Service\ErrorService;
 use App\Service\UserService;
 use Exception;
@@ -26,39 +27,25 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    protected $errorService;
+    protected ErrorService $errorService;
     public function __construct(ErrorService $errorService)
-    {     
+    {
         $this->errorService = $errorService;
     }
 
     public function loginIndex(): RedirectResponse
     {
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000'); // Valeur par défaut si l'ENV est absent
+        $frontendUrl = config('app.frontend_url');
         return redirect()->away($frontendUrl);
     }
 
-    public function login(LoginRequest $request): JsonResponse
+    public function login(LoginRequest $request,AuthService $authService): JsonResponse
     {
-        $credentials = $request->safe()->only(['password', 'email']);
-        $remember = $request->safe()->only(['remember']);
-        try {
-            if (Auth::attempt($credentials, $remember)) {
-                $request->session()->regenerate();
-                return (new BaseResource([
-                    'success' => true,
-                    'message' => "Connexion réussie."
-                ]))->response()->setStatusCode(200);  
-            }
-            $success =true;
-        } catch (Exception $e) {
-            Log::error("Erreur lors de la connexion : " . $e->getMessage(), ['exception' => $e]);
-            $success = false;
-        }
+       $response = $authService->login($request);
         return (new BaseResource([
-            'success' => $success,
-            'message' => $success ? "Les identifiants sont incorrects." : $this->errorService->message()
-        ]))->response()->setStatusCode($success ? 401 : 500);  
+            'success' => $response["success"],
+            'message' => $response["success"] ? $response["message"] : $this->errorService->message()
+        ]))->response()->setStatusCode($response["success"] ? 200 : 500);
     }
 
 
@@ -82,16 +69,16 @@ class AuthController extends Controller
         return (new BaseResource([
             'success' => $success,
             'message' => $success ? "Un e-mail de vérification a été envoyé." : $this->errorService->message()
-        ]))->response()->setStatusCode($success ? 201 : 500);  
+        ]))->response()->setStatusCode($success ? 201 : 500);
     }
 
-    public function logout(Request $request ,UserService $userService): JsonResponse
-    {      
-        $success = $userService->logout($request);
+    public function logout(Request $request ,AuthService $authService): JsonResponse
+    {
+        $success = $authService->logout($request);
         return (new BaseResource([
             'success' => $success,
             'message' => $success ? "Déconnexion réussie" : $this->errorService->message()
-        ]))->response()->setStatusCode($success ? 200 : 500);  
+        ]))->response()->setStatusCode($success ? 200 : 500);
     }
 
 
@@ -109,8 +96,8 @@ class AuthController extends Controller
         return (new BaseResource([
             'success' => $success,
             'message' => $success ? "Un e-mail de mot passe oublié a été envoyé." : $this->errorService->message()
-        ]))->response()->setStatusCode($success ? 200 : 500); 
-       
+        ]))->response()->setStatusCode($success ? 200 : 500);
+
     }
 
     public function sendVerificationEmail():JsonResponse
@@ -121,7 +108,7 @@ class AuthController extends Controller
             return (new BaseResource([
                 'success' => true,
                 'message' => "L'email est déja vérifier"
-            ]))->response()->setStatusCode(409);  
+            ]))->response()->setStatusCode(409);
         }
         SendVerificationEmail::dispatch($user);
         $success = true;
@@ -132,11 +119,11 @@ class AuthController extends Controller
         return (new BaseResource([
             'success' => $success,
             'message' => $success ? "Un e-mail de vérification a été envoyé." : $this->errorService->message()
-        ]))->response()->setStatusCode($success ? 200 : 500);     
+        ]))->response()->setStatusCode($success ? 200 : 500);
     }
 
     public function resetPassword(string $token):RedirectResponse | JsonResponse
-    {   
+    {
         try{
         $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
         $resetUrl = $frontendUrl . '/reset-password?token=' . $token;
@@ -148,7 +135,7 @@ class AuthController extends Controller
                 'message' => $this->errorService->message()
             ]))->response()->setStatusCode(500);
         }
-        
+
     }
 
     public function updatePassword(UpdatePasswordRequest $request)
@@ -160,7 +147,7 @@ class AuthController extends Controller
                 function (User $user, string $password) {
                     $user->forceFill([
                         'password' => Hash::make($password)
-                    ])->setRememberToken(Str::random(60));         
+                    ])->setRememberToken(Str::random(60));
                     $user->save();
                     event(new PasswordReset($user));
                 }
