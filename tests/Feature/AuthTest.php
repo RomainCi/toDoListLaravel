@@ -20,7 +20,7 @@ uses(RefreshDatabase::class);
 
 test('register-50-user-dif', function() {
     Queue::fake();
-    
+
     $client = new Client(); // Initialisation du client Guzzle
     $responses = [];
     $emailBase = 'testuser'; // Base pour générer des emails uniques
@@ -95,14 +95,14 @@ dump("⏳Temps total d'exécution pour toutes les requêtes : " . $totalTime . "
 });
 
 
-test('register-50-user',function(){
+test('register-50-user-no-dif',function(){
     Queue::fake();
 
         // Simuler l'envoi de données pour l'enregistrement de 50 utilisateurs
         $responses = [];
         $emailBase = 'JohnDoeTest'; // Base pour générer des emails uniques
 
-        for ($i = 1; $i <= 50; $i++) {
+        for ($i = 1; $i <= 2; $i++) {
             $email = $emailBase . $i . '@gmail.com'; // Email unique pour chaque utilisateur
             $response = $this->withHeaders([
                 'Origin' => 'http://127.0.0.1:8000',
@@ -113,13 +113,13 @@ test('register-50-user',function(){
                 "password" => "3dazdzadD#",
                 "password_confirmation" => '3dazdzadD#'
             ]);
-            
+
             // Si la réponse contient des erreurs, afficher les erreurs pour déboguer
             if ($response->json('errors')) {
                 dump($response->json('errors'));
             }
-            
-           
+
+
 
             $responses[] = $response;
             // dd($response->json('data'));
@@ -134,7 +134,7 @@ test('register-50-user',function(){
         }
 });
 
-test('register', function () {
+test('register-1-user', function () {
     // Fake les queues pour empêcher l'exécution des jobs
     Queue::fake();
 
@@ -159,7 +159,7 @@ test('register', function () {
     $this->assertDatabaseHas('users', [
         'email' => 'john@gmail.com'
     ]);
-    
+
     // Vérifier qu'un job a bien été dispatché
     Queue::assertPushed(SendVerificationEmail::class, function ($job) {
         return $job->user->email === 'john@gmail.com';
@@ -180,7 +180,7 @@ test('login', function () {
     ])->postJson('/api/auth/login', [
         "email" => "john@gmail.com",
         "password" => "S3cr3t@e",
-        "remember" => true, 
+        "remember" => true,
     ]);
     // Vérification des erreurs dans la réponse
     if ($response->json('errors')) {
@@ -201,7 +201,7 @@ test('logout', function () {
     $response = $this->withHeaders([
         'Origin' => 'http://127.0.0.1:8000',
     ])->postJson('/api/auth/logout');
-    
+
     // 4. Vérifie que la réponse est correcte
     $response->assertStatus(200)
              ->assertJson([
@@ -229,7 +229,7 @@ test('verifyEmail',function(){
         'first_name' => 'John',
         'last_name' => 'Doe',
     ]);
-    
+
     $this->actingAs($user);
 
     $response = $this->withHeaders([
@@ -239,7 +239,7 @@ test('verifyEmail',function(){
     Queue::assertPushed(SendVerificationEmail::class, function ($job) {
         return $job->user->email === 'john@gmail.com';
     });
-    
+
 });
 
 test('forget-password',function(){

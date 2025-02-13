@@ -2,21 +2,27 @@
 
 namespace App\Notifications;
 
+use App\Models\Project;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ResetPasswordNotification extends Notification implements ShouldQueue
+class ChangeRoleUserNotification extends Notification implements ShouldQueue
 {
     use Queueable;
-    protected string $token;
+    protected Project $project;
+    protected string $role;
+    protected User $user;
     /**
      * Create a new notification instance.
      */
-    public function __construct($token)
+    public function __construct(Project $project,string $role,User $user)
     {
-        $this->token = $token;
+        $this->project = $project;
+        $this->role = $role;
+        $this->user = $user;
     }
 
     /**
@@ -35,9 +41,12 @@ class ResetPasswordNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-        ->line('Vous recevez cet email car nous avons reçu une demande de réinitialisation de mot de passe pour votre compte.')
-        ->action('Réinitialiser mon mot de passe', route('auth.password.reset', $this->token)) // Personnalisation du lien
-        ->line('Si vous n\'êtes pas à l\'origine de cette demande, aucune action supplémentaire n\'est requise.');
+            ->subject('Modification de role')
+            ->greeting('Bonjour ' . $this->user->last_name)
+            ->line('Votre rôle dans le projet '.$this->project->title.' a été modifié.')
+            ->line('Votre nouveau rôle est : ' . $this->role)
+            ->action('Voir votre projet', config('app.frontend_url').'/projet')
+            ->salutation('Cordialement, Votre équipe ' . config('app.name'));
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Models\Project;
+use App\Models\User;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -43,8 +44,23 @@ class ProjectService
         return $projects;
     }
 
-    public function update(array $validated):Project
+    /**
+     * @throws Exception
+     */
+    public function update(array $validated, Project $project,string|null $path):void
     {
+        $project->update([
+            "title" => $validated['title'],
+            "background_color" =>$validated['background_color']??null,
+            "background_image" =>$path,
+        ]);
+        $project->save();
+    }
 
+    public function updateRole(array $validated, Project $project,User $user):void
+    {
+       $projectUser =  $user->projects()->where('id',$project->id)->first();
+       $projectUser->pivot->role = $validated['role'];
+       $projectUser->pivot->save();
     }
 }

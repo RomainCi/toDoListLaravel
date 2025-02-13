@@ -125,7 +125,7 @@ class AuthController extends Controller
     public function resetPassword(string $token):RedirectResponse | JsonResponse
     {
         try{
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $frontendUrl = config('app.frontendUrl');
         $resetUrl = $frontendUrl . '/reset-password?token=' . $token;
         return redirect()->away($resetUrl);
         }catch(Exception $e){
@@ -135,7 +135,6 @@ class AuthController extends Controller
                 'message' => $this->errorService->message()
             ]))->response()->setStatusCode(500);
         }
-
     }
 
     public function updatePassword(UpdatePasswordRequest $request)

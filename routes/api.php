@@ -50,4 +50,5 @@ Route::controller(ProjectController::class)->name('project.')->prefix('project')
     Route::post('/',"store")->name('store');
     Route::get('/',"index")->name('index');
     Route::patch('/{project}','update')->name('update');
+    Route::put('/{project}','updateRole')->name('update.role');
 });

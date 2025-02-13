@@ -27,9 +27,10 @@ class ProjectPolicy
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user): bool
+    public function updateRole(User $user,Project $project): bool
     {
-        return false;
+        return $user->projects()->where('project_id', $project->id)
+            ->wherePivot('role', 'admin')->exists();
     }
 
     /**

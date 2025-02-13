@@ -42,8 +42,8 @@ class ProjectFactory extends Factory
         }
         return [
             "title" => $this->faker->word(),
-            "background_image" => $isImageNull ? null :$path, // Si true, l'image est null
-            "background_color" => !$isImageNull ? null : '#'.substr(md5(rand()), 0, 6), // Si false, la couleur est null
+            "background_color" => !$isImageNull ? null : '#'.substr(md5(rand()), 0, 6),
+            "background_image" => $isImageNull ? null :$path, // Si false, la couleur est null
         ];
     }
 }
