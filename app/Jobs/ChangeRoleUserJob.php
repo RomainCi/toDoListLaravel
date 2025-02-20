@@ -14,6 +14,8 @@ class ChangeRoleUserJob implements ShouldQueue
     protected User $user;
     protected string $role;
     protected Project $project;
+    public int $tries = 5;
+    public int $backoff = 5;
 
     /**
      * Create a new job instance.

@@ -143,50 +143,24 @@ test('update', function () {
     ]);
 });
 
-test('update-role', function () {
-    Queue::fake();
-    Notification::fake();
+test("delete-project",function (){
     $user = User::factory()->create();
-    $invite=User::factory()->create();
-    $invite2=User::factory()->create();
-    $otherProjects = Project::factory(2)->create();
     $projects = Project::factory(1)->create();
-
     $this->actingAs($user);
-    /** @var Project $otherProject */
-    foreach ($otherProjects as $otherProject) {
+    /** @var Project $projects */
+    foreach ($projects as $project) {
         ProjectUser::factory()->create([
-            'user_id' => $invite->id,
-            "project_id" => $otherProject->id,
-            "role" => "admin",
+            'user_id' => $user->id,
+            'project_id' => $project->id,
+            "role"=>"admin",
         ]);
     }
-    /** @var Project $projects */
-    foreach ($projects as $project) {
-        ProjectUser::factory()->create([
-            'user_id' =>$user->id,
-            'project_id' => $project->id,
-            'role' => 'admin',  // Exemple de rôle que tu peux attribuer
-        ]);
-    };
-    /** @var Project $projects */
-    foreach ($projects as $project) {
-        ProjectUser::factory()->create([
-            'user_id' =>$invite->id,
-            'project_id' => $project->id,
-            'role' => 'visitor',  // Exemple de rôle que tu peux attribuer
-        ]);
-    };
-    $data = [
-       "user_id" => $invite->id,
-        "role"=>"editor"
-    ];
     $response = $this->withHeaders([
         'Origin' => 'http://127.0.0.1',
-    ])->putJson('/api/project/'.$projects[0]->id,$data);
-    dump($response->json());
+    ])->deleteJson('/api/project/'.$projects[0]->id);
     $response->assertStatus(200);
-    Queue::assertPushed(\App\Jobs\ChangeRoleUserJob::class);
-
-
+    dump(Project::find($projects[0]->id));
 });
+
+
+

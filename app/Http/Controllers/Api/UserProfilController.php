@@ -20,9 +20,9 @@ use Illuminate\Support\Facades\Log;
 
 class UserProfilController extends Controller
 {
-    protected $errorService;
-    protected $profilService;
-    protected $s3Service;
+    protected ErrorService $errorService;
+    protected ProfilService $profilService;
+    protected S3Service $s3Service;
 
     public function __construct(ErrorService $errorService, ProfilService $profilService, S3Service $s3Service)
     {
@@ -65,7 +65,7 @@ class UserProfilController extends Controller
         }
         return (new BaseResource([
             'success' => $success,
-            'message' => $success ? "Votre image de profil a bien été uploadée" : $this->errorService->message()
+            'message' => $success ? "Votre image de profil a bien été téléchargé" : $this->errorService->message()
         ]))->response()->setStatusCode($success ? 200 : 500);
     }
 

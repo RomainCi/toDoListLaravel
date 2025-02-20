@@ -30,9 +30,9 @@ class RegisterRequest extends FormRequest
             'password' => [
                 'required',
                 'confirmed',
-                new PasswordRule($this->isPrecognitive() ? false : true),          
+                new PasswordRule(!$this->isPrecognitive()),
             ],
-        
+
         ];
     }
 

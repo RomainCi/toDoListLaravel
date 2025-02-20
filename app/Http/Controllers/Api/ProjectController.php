@@ -2,20 +2,16 @@
 
 namespace App\Http\Controllers\Api;
 
-use AllowDynamicProperties;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Project\StoreRequest;
 use App\Http\Requests\Project\UpdateRequest;
 use App\Http\Resources\BaseResource;
 use App\Http\Resources\ProjectCollection;
 use App\Http\Resources\ProjectResource;
-use App\Jobs\ChangeRoleUserJob;
 use App\Models\Project;
 use App\Models\User;
-use App\Notifications\ChangeRoleUserNotification;
 use App\Service\ErrorService;
 use App\Service\ProjectService;
-use App\Service\ProjectUserService;
 use App\Service\S3Service;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -23,22 +19,19 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 
-#[AllowDynamicProperties] class ProjectController extends Controller
+class ProjectController extends Controller
 {
     protected ErrorService $errorService;
     protected S3Service $s3Service;
     protected ProjectService $projectService;
 
-    public function __construct(ErrorService $errorService, S3Service $s3Service, ProjectService $projectService, ProjectUserService $projectUserService)
+    public function __construct(ErrorService $errorService, S3Service $s3Service, ProjectService $projectService)
     {
         $this->errorService = $errorService;
         $this->s3Service = $s3Service;
         $this->projectService = $projectService;
-        $this->projetUserService = $projectUserService;
     }
 
     public function store(StoreRequest $request): JsonResponse
@@ -54,7 +47,7 @@ use Illuminate\Validation\Rule;
                 $path = $this->s3Service->put($image, $user, "project");
             }
             $project = $this->projectService->store($validateData, $path);
-            $this->projetUserService->store($user, $project);
+            $this->projectService->store($user, $project,"admin");
             DB::commit();
             $success = true;
         } catch (Exception $e) {
@@ -74,7 +67,7 @@ use Illuminate\Validation\Rule;
     {
         try {
             $projects = User::where("id", Auth::id())
-                ->with(["projects.users.profil"])
+                ->with(["projects"])
                 ->first()
                 ->projects()
                 ->paginate(5);
@@ -92,7 +85,7 @@ use Illuminate\Validation\Rule;
     /**
      * @throws Exception
      */
-    public function update(UpdateRequest $request, Project $project)
+    public function update(UpdateRequest $request, Project $project): JsonResponse
     {
         Gate::authorize('update-project',$project);
        $validated =  $request->validated();
@@ -125,26 +118,27 @@ use Illuminate\Validation\Rule;
         ], $success ? 200 : 500);
     }
 
-    public function updateRole(Request $request, Project $project)
+    public function destroy(Project $project):JsonResponse
     {
-        Gate::authorize('update-project',$project);
-        $validate = $request->validate([
-            "role" => "required",
-            "user_id" => Rule::exists('project_user', 'user_id')->where('project_id', $project->id),
-        ]);
+        Gate::authorize('delete-project',$project);
+        $success = false;
         try {
             DB::beginTransaction();
-            $invite = User::with('projects')->find($validate['user_id']);
-            $this->projectService->updateRole($validate,$project,$invite);
-            Log::info("🚀 Dispatch du job ChangeRoleUserJob pour user_id={$invite->id}, project_id={$project->id}, role={$validate['role']}");
-
-            ChangeRoleUserJob::dispatch($project,$invite,$validate['role']);
+            $this->projectService->delete($project);
+            $success = true;
             DB::commit();
-            return response()->json(["success" => true]);
-//
-        }catch (Exception $e) {
+        }catch (Exception $e){
             DB::rollBack();
-            Log::error("Une erreur est survenue dans le ProjectController updateRole" . $e->getMessage(), ['exception' => $e]);
+            Log::error("Une erreur est survenue dans le ProjectController Delete" . $e->getMessage(), ['exception' => $e]);
         }
+        return (new BaseResource([
+            "success" => $success,
+            "message" => $success ? "Votre projet a bien été supprimé" : $this->errorService->message()
+        ]))->response()->setStatusCode($success ? 200 : 500);
+    }
+
+    public function show()
+    {
+
     }
 }

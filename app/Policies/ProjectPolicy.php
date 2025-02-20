@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Project;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class ProjectPolicy
 {
@@ -21,17 +20,14 @@ class ProjectPolicy
      */
     public function view(User $user, Project $project): bool
     {
-        return false;
+        return $user->projects()->where('project_id', $project->id)
+            ->exists();
     }
 
     /**
      * Determine whether the user can create models.
      */
-    public function updateRole(User $user,Project $project): bool
-    {
-        return $user->projects()->where('project_id', $project->id)
-            ->wherePivot('role', 'admin')->exists();
-    }
+
 
     /**
      * Determine whether the user can update the model.
@@ -47,7 +43,8 @@ class ProjectPolicy
      */
     public function delete(User $user, Project $project): bool
     {
-        return false;
+        return $user->projects()->where('project_id', $project->id)
+            ->wherePivot('role', 'admin')->exists();
     }
 
     /**

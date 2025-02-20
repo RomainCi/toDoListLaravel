@@ -8,7 +8,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\URL;
 
 class EmailChangeNotification extends Notification implements ShouldQueue
@@ -41,16 +40,15 @@ class EmailChangeNotification extends Notification implements ShouldQueue
         return (new MailMessage)
         ->subject('Changement d\'adresse e-mail')  // Sujet de l'email
         ->greeting('Bonjour ' . $this->user->last_name)  // Salutation
-        // Utilisation de lines() pour plusieurs lignes d'introduction
         ->lines([
             'Nous avons reçu une demande de changement de votre adresse e-mail.',
             'Veuillez cliquer sur le bouton ci-dessous pour confirmer le changement.'
-        ])   
+        ])
         // Le bouton d'action avec l'URL pour confirmer
-        ->action('Confirmer le changement', $this->verifyRoute($notifiable)) 
-        ->line("Si vous n'êtes pas à l'origine de cette demande, aucune action supplémentaire n'est requise.")   
+        ->action('Confirmer le changement', $this->verifyRoute($notifiable))
+        ->line("Si vous n'êtes pas à l'origine de cette demande, aucune action supplémentaire n'est requise.")
         // Salutation finale
-        ->salutation('Cordialement, Votre équipe ' . env('APP_NAME'));
+        ->salutation('Cordialement, Votre équipe ' . config('app.name'));
     }
 
     /**
@@ -65,7 +63,7 @@ class EmailChangeNotification extends Notification implements ShouldQueue
         ];
     }
 
-    protected function verifyRoute(AnonymousNotifiable $notifiable)
+    protected function verifyRoute(AnonymousNotifiable $notifiable): string
     {
         return URL::temporarySignedRoute('user.email.change.verify', 60 * 20, [
             'user' => $this->user->id,

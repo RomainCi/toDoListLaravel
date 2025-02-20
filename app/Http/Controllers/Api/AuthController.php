@@ -9,9 +9,12 @@ use App\Http\Requests\Auth\UpdatePasswordRequest;
 use App\Http\Resources\BaseResource;
 use App\Jobs\DeleteUnverifiedUser;
 use App\Jobs\SendVerificationEmail;
+use App\Models\Project;
 use App\Models\User;
 use App\Service\AuthService;
 use App\Service\ErrorService;
+use App\Service\InvitationService;
+use App\Service\ProjectUserService;
 use App\Service\UserService;
 use Exception;
 use Illuminate\Auth\Events\PasswordReset;
@@ -28,9 +31,11 @@ use Illuminate\Support\Str;
 class AuthController extends Controller
 {
     protected ErrorService $errorService;
-    public function __construct(ErrorService $errorService)
+    protected UserService $userService;
+    public function __construct(ErrorService $errorService,UserService $userService)
     {
         $this->errorService = $errorService;
+        $this->userService = $userService;
     }
 
     public function loginIndex(): RedirectResponse
@@ -49,12 +54,12 @@ class AuthController extends Controller
     }
 
 
-    public function register(RegisterRequest $request, UserService $userService): JsonResponse
+    public function register(RegisterRequest $request): JsonResponse
     {
         $validated = $request->validated();
         try {
             DB::beginTransaction();
-            $user = $userService->create($validated);
+            $user = $this->userService->create($validated);
             Auth::login($user);
             $request->session()->regenerate();
             SendVerificationEmail::dispatch($user);
@@ -86,7 +91,6 @@ class AuthController extends Controller
     {
         try{
             $request->validate(['email' => 'required|email']);
-            ////VERIFIER QUE PASSWORD RESET TOKEN CE DELETE/////
             Password::sendResetLink($request->only('email'));
             $success = true;
         }catch(Exception $e){
@@ -162,6 +166,44 @@ class AuthController extends Controller
                 "message" => $this->errorService->message()
             ], 500);
         }
+    }
+
+    public function registerWithToken(RegisterRequest $request,string $token,InvitationService $invitationService,ProjectUserService $projectUserService):JsonResponse
+    {
+        $validated = $request->validated();
+        $status = null;
+        $message = null;
+        try {
+            DB::beginTransaction();
+            $invitation = $invitationService->showWithToken($token);
+            if(!$invitation || $invitation->accept_at || $invitation->expires_at < now()){
+                $status = 400;
+                $message = "Le lien a expiré !";
+                throw new Exception("problème avec le token");
+            }
+            $invitationService->update($token,"accepted");
+            $validated['email'] = $invitation->email;
+            $user = $this->userService->create($validated);
+            $user->email_verified_at = now();
+            $project = Project::find($invitation->project_id);
+            $projectUserService->store($user,$project,"visitor");
+            Auth::login($user);
+            $request->session()->regenerate();
+            DB::commit();
+            $success = true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Erreur dans AuthControllerRegisterWithToken : " . $request->ip() . $e->getMessage());
+            $success = false;
+            if(!$status){
+                $status = 500;
+                $message = $this->errorService->message();
+            }
+        }
+        return (new BaseResource([
+            'success' => $success,
+            'message' => $success ? "Création faite avec success" : $message
+        ]))->response()->setStatusCode($success ? 201 : $status);
     }
 
 }

@@ -5,9 +5,8 @@ namespace App\Service;
 use App\Models\Project;
 use App\Models\User;
 use Exception;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Str;
+
 
 class ProjectService
 {
@@ -35,11 +34,6 @@ class ProjectService
             if ($project->background_image) {
                 $project->background_image = $this->s3Service->getUrl($project->background_image);
             };
-            $project->users->each(function ($user) {
-                if ($user->profil !== null && $user->profil->picture !==null && !Str::isUrl($user->profil->picture)) {
-                    $user->profil->picture = $this->s3Service->getUrl($user->profil->picture);
-                }
-            });
         }
         return $projects;
     }
@@ -62,5 +56,10 @@ class ProjectService
        $projectUser =  $user->projects()->where('id',$project->id)->first();
        $projectUser->pivot->role = $validated['role'];
        $projectUser->pivot->save();
+    }
+
+    public function delete(Project $project):void
+    {
+        $project->delete();
     }
 }

@@ -1,6 +1,7 @@
 <?php
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
+use App\Models\Invitation;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Jobs\SendVerificationEmail;
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
@@ -306,4 +307,72 @@ test('post-reset-password',function(){
     Event::assertDispatched(PasswordReset::class, function ($event) use ($user) {
         return $event->user->is($user);
     });
+});
+
+test('register-with-token',function(){
+    /** @var Invitation $invitation */
+    $invitation = Invitation::factory()->create();
+    $encrypt = Crypt::encryptString($invitation->token);
+    $response = $this->withHeaders([
+        'Origin' => 'http://127.0.0.1:8000',
+    ])->postJson('/api/auth/register/'.$encrypt, [
+        "lastName" => "Doe",
+        "firstName" => "John",
+        "email" => $invitation->email,
+        "password" => "3dazdzadD#",
+        "password_confirmation" => '3dazdzadD#'
+    ]);
+    $user = User::where("email",$invitation->email)->first();
+    $this->assertDatabaseHas('users',[
+        "email" => $invitation->email,
+        "last_name" => "Doe",
+        "first_name" => "John",
+        "id" => $user->id,
+    ]);
+    $this->assertDatabaseHas('project_user',[
+        'user_id' => $user->id,
+        'project_id' => $invitation->project_id,
+        "role"=>"visitor"
+    ]);
+    $this->assertDatabaseHas('invitations',[
+        'email' => $invitation->email,
+        "project_id" => $invitation->project_id,
+        "status"=>"accepted",
+       "inviter_id"=>$invitation->inviter_id,
+    ]);
+    expect($response->status())->toBe(201);
+});
+
+
+test('register-token-fail',function (){
+    /** @var Invitation $invitation */
+    $invitation = Invitation::factory()->create();
+    $token = fake()->uuid();
+    $encrypt = Crypt::encryptString($token);
+    $response = $this->withHeaders([
+        'Origin' => 'http://127.0.0.1:8000',
+    ])->postJson('/api/auth/register/'.$encrypt, [
+        "lastName" => "Doe",
+        "firstName" => "John",
+        "email" => $invitation->email,
+        "password" => "3dazdzadD#",
+        "password_confirmation" => '3dazdzadD#'
+    ]);
+
+    $this->assertDatabaseMissing('users', [
+        'email' => $invitation->email,
+    ]);
+    $this->assertDatabaseMissing('project_user', [
+        'project_id' => $invitation->project_id,
+        "role"=>"visitor"
+    ]);
+
+    $this->assertDatabaseHas('invitations',[
+        'email' => $invitation->email,
+        "project_id" => $invitation->project_id,
+        "status"=>"pending",
+        "inviter_id"=>$invitation->inviter_id,
+    ]);
+    dump($response->json());
+    expect($response->status())->toBe(400);
 });

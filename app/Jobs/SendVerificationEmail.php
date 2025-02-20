@@ -13,13 +13,14 @@ class SendVerificationEmail implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $user;
+    public User $user;
     public int $tries = 5;
+    public int $backoff = 5;
 
     /**
      * Créer une nouvelle instance de Job.
      *
-     * @param  \App\Models\User  $user
+     * @param User $user
      * @return void
      */
     public function __construct(User $user)
@@ -32,7 +33,7 @@ class SendVerificationEmail implements ShouldQueue
      *
      * @return void
      */
-    public function handle()
+    public function handle(): void
     {
         sleep(5);
         event(new Registered($this->user));

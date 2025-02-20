@@ -13,9 +13,10 @@ use Illuminate\Queue\SerializesModels;
 class DeleteUnverifiedUser implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-    
-    private $user;
+
+    private User $user;
     public int $tries = 5;
+    public int $backoff = 5;
 
     /**
      * Create a new job instance.

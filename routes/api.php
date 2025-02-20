@@ -1,13 +1,16 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ProjectUserController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserProfilController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
+
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -21,6 +24,7 @@ Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $requ
 
 Route::controller(AuthController::class)->name('auth.')->prefix('auth')->group(function () {
     Route::post('/register', 'register')->name('register')->middleware([HandlePrecognitiveRequests::class]);
+    Route::post('/register/{token}', 'registerWithToken')->name('register.token')->middleware([HandlePrecognitiveRequests::class]);
     Route::post('/login', 'login')->name('login');
     Route::get('/login','loginIndex')->name('login.index');
     Route::post('/logout','logout')->name('logout')->middleware('auth:sanctum');
@@ -28,6 +32,7 @@ Route::controller(AuthController::class)->name('auth.')->prefix('auth')->group(f
     Route::post('/forget-password','forgetPassword')->name('password.email')->middleware('guest');
     Route::get('/reset-password/{token}','resetPassword')->name('password.reset')->middleware('guest');
     Route::patch('/reset-password','updatePassword')->name('store.password.reset')->middleware('guest');
+
 });
 
 Route::controller(UserController::class)->name('user.')->prefix('user')->middleware(['auth:sanctum','verified'])->group(function(){
@@ -50,5 +55,20 @@ Route::controller(ProjectController::class)->name('project.')->prefix('project')
     Route::post('/',"store")->name('store');
     Route::get('/',"index")->name('index');
     Route::patch('/{project}','update')->name('update');
-    Route::put('/{project}','updateRole')->name('update.role');
+    Route::delete('/{project}','destroy')->name('destroy');
 });
+
+Route::controller(ProjectUserController::class)->name('project.user.')->prefix('project/user')->middleware(['auth:sanctum','verified'])->group(function(){
+    Route::put('/{project}','update')->name('update');
+    Route::delete('/{project}','destroy')->name('destroy');
+    Route::get('/{project}','show')->name('show');
+});
+
+Route::controller(InvitationController::class)->name('invitation.')->prefix('invitation')->group(function(){
+   Route::post('/{project}','store')->middleware(['auth:sanctum','verified'])->name('store');
+   Route::get('/accept/{token}','accept')->name('accept');
+});
+
+// Ajouter middleware(['throttle:60,1']) pour limiter les requesters
+// NE PAS OUBLIER LE CRON POUR LES TOKEN RESET PASSWORD
+// NE PAS OUBLIER SUPERVISOR POUR LES JOBS COMPRENDRE PK JAI DES ERREURS DANS WORKER.LOG

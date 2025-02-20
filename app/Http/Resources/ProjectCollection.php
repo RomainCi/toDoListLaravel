@@ -19,7 +19,6 @@ class ProjectCollection extends JsonResource
          "background_color" => $this->resource->background_color,
           "background_image" => $this->resource->background_image,
           "title" => $this->resource->title,
-          "users" =>UsersResource::collection($this->resource->users),
        ];
     }
 }
